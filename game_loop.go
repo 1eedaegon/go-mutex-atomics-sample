@@ -3,26 +3,21 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type Player struct {
-	mu     sync.RWMutex
-	health int
+	health int32
 }
 
 func (p *Player) GetHealth() int {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.health
+	return int(atomic.LoadInt32(&p.health))
 }
 
-func (p *Player) TackDamage(value int) int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.health -= value
-	return p.health
+func (p *Player) TakeDamage(value int) int {
+	atomic.StoreInt32(&p.health, int32(p.GetHealth()-value))
+	return int(atomic.LoadInt32(&p.health))
 }
 
 func NewPlayer() *Player {
@@ -42,7 +37,7 @@ func startUILoop(p *Player) {
 func startGameLoop(p *Player) {
 	ticker := time.NewTicker(time.Millisecond * 300)
 	for {
-		p.TackDamage(rand.Intn(40))
+		p.TakeDamage(rand.Intn(40))
 		if p.GetHealth() <= 0 {
 			fmt.Println("Game Over")
 			break
